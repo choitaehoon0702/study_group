@@ -1,0 +1,220 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/**
+ * 1. User
+ */
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studiesLed    Study[]            @relation("StudyLeader")
+  memberships   StudyMember[]
+  applications  StudyApplication[]
+  materials     StudyMaterial[]
+  pollsCreated  StudyPoll[]
+  votes         StudyPollVote[]
+  comments      Comment[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+/**
+ * 2. Study
+ */
+model Study {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String   @db.Text
+  courseName  String
+  maxMembers  Int
+  leaderId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leader User @relation("StudyLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+
+  members      StudyMember[]
+  applications StudyApplication[]
+  materials    StudyMaterial[]
+  polls        StudyPoll[]
+  comments     Comment[]
+
+  @@map("studies")
+}
+
+/**
+ * 3. StudyMember
+ */
+model StudyMember {
+  id        Int       @id @default(autoincrement())
+  studyId   Int
+  userId    Int
+  role      StudyRole @default(MEMBER)
+  createdAt DateTime  @default(now())
+
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, userId])
+  @@map("study_members")
+}
+
+/**
+ * 4. StudyApplication
+ */
+model StudyApplication {
+  id        Int               @id @default(autoincrement())
+  studyId   Int
+  userId    Int
+  message   String?           @db.Text
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, userId])
+  @@map("study_applications")
+}
+
+/**
+ * 5. StudyMaterial
+ */
+model StudyMaterial {
+  id          Int      @id @default(autoincrement())
+  studyId     Int
+  uploaderId  Int
+  title       String
+  description String?  @db.Text
+  url         String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  study    Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  uploader User  @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@map("study_materials")
+}
+
+/**
+ * 6. StudyPoll
+ */
+model StudyPoll {
+  id        Int      @id @default(autoincrement())
+  studyId   Int
+  creatorId Int
+  title     String
+  closed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  study   Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  options StudyPollOption[]
+
+  @@map("study_polls")
+}
+
+/**
+ * 7. StudyPollOption
+ */
+model StudyPollOption {
+  id        Int      @id @default(autoincrement())
+  pollId    Int
+  dateTime  DateTime
+  createdAt DateTime @default(now())
+
+  poll  StudyPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes StudyPollVote[]
+
+  @@map("study_poll_options")
+}
+
+/**
+ * 8. StudyPollVote
+ */
+model StudyPollVote {
+  id           Int      @id @default(autoincrement())
+  pollOptionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+
+  option StudyPollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollOptionId, userId])
+  @@map("study_poll_votes")
+}
+
+/**
+ * 9. Comment
+ */
+model Comment {
+  id        Int      @id @default(autoincrement())
+  studyId   Int
+  authorId  Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  study  Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+/**
+ * 10. Notification
+ */
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+/**
+ * Enum
+ */
+enum StudyRole {
+  LEADER
+  MEMBER
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  APPLICATION_CREATED
+  APPLICATION_APPROVED
+  APPLICATION_REJECTED
+  POLL_CREATED
+  MATERIAL_CREATED
+}
